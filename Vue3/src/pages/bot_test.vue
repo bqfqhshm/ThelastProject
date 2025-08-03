@@ -138,15 +138,34 @@ export default {
     },
     async getBotResponse(prompt) {
       try {
-        const response = await fetch("http://localhost:3000/api/chat", {
+        // 修改点1：将请求地址从后端接口接口替换为DashScope官方API地址
+        const response = await fetch("https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${localStorage.getItem('token')}`
+            // 修改点2：替换掉原有的Authorization（基于token），替换为DashScope的认证信息
+            // 包含敏感的API密钥和AppId
+            "Authorization": "Bearer sk-8e706977fd994fe09a558ac14a12fbb4",
+            "X-DashScope-AppId": "555abb62a9174d85a76f306cc3f62c6c"
           },
+          // 修改点3：重构请求体，符合DashScope API要求的格式
           body: JSON.stringify({
-            prompt: prompt,
+            model: "qwen-max", // 指定使用的模型
+            input: {
+              messages: [
+                {
+                  role: "user",
+                  content: prompt // 传递用户输入内容
+                }
+              ]
+            },
+            parameters: {
+              result_format: "message",
+              timeout: 120 // 使用provider配置中的超时时间
+            }
           }),
+          // 修改点4：添加前端超时设置（120秒）
+          timeout: 120000
         });
 
         if (!response.ok) {
@@ -158,11 +177,13 @@ export default {
 
         const data = await response.json();
         
+        // 修改点5：适配DashScope的响应格式，提取需要的字段
         return {
-          text: data.text,
-          think: data.think || "",
+          text: data.output?.text || "未获取到有效回复",
+          think: data.output?.thoughts || "" // 提取思考内容（如果有）
         };
       } catch (error) {
+        console.error("调用Dashscope API出错:", error);
         throw error;
       }
     },
